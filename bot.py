@@ -577,6 +577,7 @@ async def on_ready():
     initialize_admins()
     initialize_commands()
     initialize_cache()
+    initialize_listeners()
     await initialize_emoji_managers()
     print("Logged in as " + client.user.name)
     await client.change_presence(game=Game(name="the tragedy of darth plagueis the wise", url='https://www.twitchquotes.com/copypastas/2202', type=2))
@@ -636,6 +637,9 @@ def initialize_commands():
         smart_commands[command.server_id].append(smart_command(command.trigger.replace(str(command.server_id), '', 1), command.response, command.count, client.get_server(str(command.server_id)), command.author_id))
     for server, cmds in smart_commands.items():
         smart_commands[server].sort()
+
+def initialize_listeners():
+    
 
 def update_role(target_role_id, server_id, required_role_id=None, delete=False):
     if (delete):

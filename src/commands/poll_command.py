@@ -46,7 +46,7 @@ class poll_command(abstract_command):
         timeout_target = time.time() + timeout
         while True:
             if(time.time() > timeout_target): break
-            react = await client.wait_for_reaction(poll_command.ANSWERS, msg)
+            react = await client.wait_for_reaction(emoji=poll_command.ANSWERS, message=msg)
             if react.user == client.user: continue
             i = poll_command.ANSWERS.index(str(react.reaction.emoji))
             if not react.user in votes[i]:
