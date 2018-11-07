@@ -15,13 +15,18 @@ class poll_command(abstract_command):
     '\N{DIGIT SEVEN}\N{COMBINING ENCLOSING KEYCAP}',
     '\N{DIGIT EIGHT}\N{COMBINING ENCLOSING KEYCAP}',
     '\N{DIGIT NINE}\N{COMBINING ENCLOSING KEYCAP}']
+    POLL_PATTERN = re.compile('!poll (?P<title>(?:".+")|(?:[^ ]+)) (?P<options>.*$)')
 
     def __init__(self):
         super().__init__("poll")
 
     async def exec_cmd(self, **kwargs):
-        pattern = re.compile('!poll (?P<title>(?:".+")|(?:[^ ]+)) (?P<options>.*$)')
-        match = pattern.search(self.content)
+        await run_listener(caller_msg=self.message, init=True)
+
+    async def run_listener(msg=None, caller_msg, init=False):
+        if caller_msg is None: return
+            
+        match = POLL_PATTERN.search(self.content)
         if not match: return
         
         votes = [[],[],[],[],[],[],[],[],[],[]]
@@ -29,10 +34,18 @@ class poll_command(abstract_command):
         title = match.group('title').replace('"', '')
         text = self.render_text(title, options, votes)
 
-        msg = await self.client.send_message(self.channel, text)
-        for i in range(len(options)):
-            await self.client.add_reaction(msg, self.ANSWERS[i])
 
+        if init:
+
+            msg = await self.client.send_message(self.channel, text)
+            for i in range(len(options)):
+                await self.client.add_reaction(msg, self.ANSWERS[i])
+            
+
+
+
+        await revalidate_reacts(message=msg)
+        
         while True:
             react = await self.client.wait_for_reaction(self.ANSWERS, message=msg)
             if react.user == self.client.user: continue
@@ -43,6 +56,8 @@ class poll_command(abstract_command):
                 votes[i].remove(react.user)
 
             await self.client.edit_message(msg, self.render_text(title, options, votes))
+        
+    def revalidate_reacts(message):
 
 
     def render_text(self, title, options, votes):
