@@ -21,50 +21,57 @@ class poll_command(abstract_command):
         super().__init__("poll")
 
     async def exec_cmd(self, **kwargs):
-        await run_listener(caller_msg=self.message, init=True)
+        await poll_command.run_listener(self.client, self.channel, self.message, None, True)
 
-    async def run_listener(msg=None, caller_msg, init=False):
+    @staticmethod
+    async def run_listener(client, channel, caller_msg, msg, init, timeout=60*60*24*7):
         if caller_msg is None: return
-            
-        match = POLL_PATTERN.search(self.content)
+        match = poll_command.POLL_PATTERN.search(caller_msg.content)
         if not match: return
         
         votes = [[],[],[],[],[],[],[],[],[],[]]
         options = [o.lstrip() for o in match.group('options').split(",")[:10]]
         title = match.group('title').replace('"', '')
-        text = self.render_text(title, options, votes)
-
 
         if init:
-
-            msg = await self.client.send_message(self.channel, text)
+            text = poll_command.render_text(title, options, votes)
+            msg = await client.send_message(channel, text)
             for i in range(len(options)):
-                await self.client.add_reaction(msg, self.ANSWERS[i])
-            
-
-
-
-        await revalidate_reacts(message=msg)
+                await client.add_reaction(msg, poll_command.ANSWERS[i])
+        else:
+            votes = await revalidate_reacts(client, msg, votes, options)
+            text = poll_command.render_text(title, options, votes)
+            await client.edit_message(msg, poll_command.render_text(title, options, votes))
         
+        timeout_target = time.time() + timeout
         while True:
-            react = await self.client.wait_for_reaction(self.ANSWERS, message=msg)
-            if react.user == self.client.user: continue
-            i = self.ANSWERS.index(str(react.reaction.emoji))
+            if(time.time() > timeout_target): break
+            react = await client.wait_for_reaction(poll_command.ANSWERS, msg)
+            if react.user == client.user: continue
+            i = poll_command.ANSWERS.index(str(react.reaction.emoji))
             if not react.user in votes[i]:
                 votes[i].append(react.user)
             else:
                 votes[i].remove(react.user)
 
-            await self.client.edit_message(msg, self.render_text(title, options, votes))
+            await client.edit_message(msg, poll_command.render_text(title, options, votes))
         
-    def revalidate_reacts(message):
+    @staticmethod
+    async def revalidate_reacts(client, message, votes, options):
+        votes = [[],[],[],[],[],[],[],[],[],[]]
+        for reaction in message.reactions:
+            if not reaction.emoji in poll_command.ANSWERS: continue
+            users = await client.get_reaction_users(reaction, limit=100)
+            i = poll_command.ANSWERS.index(str(reaction.emoji))
+            votes[i] += users
+        return votes
 
-
-    def render_text(self, title, options, votes):
+    @staticmethod
+    def render_text(title, options, votes):
         text = "__**%s**__\n" % title
         i = 0
         for option in options:
-            text += "%s **%s (%d)**: %s\n" % (self.ANSWERS[i], option, len(votes[i]), ' '.join([u.mention for u in votes[i]]))
+            text += "%s **%s (%d)**: %s\n" % (poll_command.ANSWERS[i], option, len(votes[i]), ' '.join([u.mention for u in votes[i]]))
             i += 1
         return text
 
