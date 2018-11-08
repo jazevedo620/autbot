@@ -74,3 +74,12 @@ class Command(Base):
         self.count = count
         self.server_id = server_id
         self.author_id = author_id
+
+class ActiveListener(Base):
+    __tablename__ = 'tb_active_listeners'
+    caller_message_id = Column('caller_message_id', Text, primary_key=True)
+    target_message_id = Column('target_message_id', Text)
+
+    def __init__(self, caller_message_id, target_message_id):
+        self.caller_message_id = caller_message_id
+        self.target_message_id = target_message_id

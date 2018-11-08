@@ -577,7 +577,7 @@ async def on_ready():
     initialize_admins()
     initialize_commands()
     initialize_cache()
-    initialize_listeners()
+    await initialize_listeners()
     await initialize_emoji_managers()
     print("Logged in as " + client.user.name)
     await client.change_presence(game=Game(name="the tragedy of darth plagueis the wise", url='https://www.twitchquotes.com/copypastas/2202', type=2))
@@ -638,8 +638,20 @@ def initialize_commands():
     for server, cmds in smart_commands.items():
         smart_commands[server].sort()
 
-def initialize_listeners():
-    
+async def initialize_listeners():
+    listener_list = session.query(ActiveListener).all()
+    for listener in listener_list:
+        for channel in self.server.channels:
+            try: caller_msg = await self.client.get_message(channel, id=listener.caller_message_id)
+            except: caller_msg = None
+            if caller_msg:
+                target_msg = await self.client.get_message(channel, id=listener.target_message_id)
+                timestamp = target_msg.timestamp
+                timeout = (60*60*24*7) - (datetime.utcnow() - timestamp)
+                if any(x in caller_msg for x in poll_command.get_aliases()):
+                    await poll_command.run_listener(self.client, channel, caller_msg, target_msg, init=False, timeout=timeout)
+                else:
+                    # TODO Implement this
 
 def update_role(target_role_id, server_id, required_role_id=None, delete=False):
     if (delete):
@@ -689,6 +701,18 @@ def update_command(triggerkey, response, count, server, author_id, delete=False)
             'author_id': int(author_id)
             }
     session.query(Command).filter_by(trigger = server.id + triggerkey).update(new_data)
+    session.commit()
+
+def update_active_listener(caller_msg, target_msg, delete=False):
+    if (delete):
+        session.query(ActiveListener).filter_by(caller_message_id = caller_msg.id).delete()
+        session.commit()
+        return
+    new_data = {
+            'caller_message_id': caller_msg.id,
+            'target_message_id': target_msg.id
+    }
+    session.query(ActiveListener).filter_by(caller_message_id = caller_msg.id).update(new_data)
     session.commit()
 
 client.loop.create_task(list_servers())
